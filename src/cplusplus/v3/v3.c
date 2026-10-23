@@ -4802,11 +4802,21 @@ char *cp_demangle_v3(const char *mangled, CpDemOptions opts) {
 			if (has_chars && !all_digits) {
 				dot_suffix = last_dot;
 				parse_len = (size_t)(last_dot - p);
+				// p already aliases parse_buf when the block_invoke trim
+				// above ran (p was set to that buffer). realloc may move
+				// or free the old block, so re-reading through the
+				// now-stale p afterward -- as the plain memcpy below
+				// would -- can copy from freed memory. realloc already
+				// preserves bytes [0, parse_len) itself in that case, so
+				// just shrink and terminate instead of re-copying.
+				bool p_aliases_parse_buf = (p == parse_buf);
 				parse_buf = realloc(parse_buf, parse_len + 1);
 				if (!parse_buf) {
 					return NULL;
 				}
-				memcpy(parse_buf, p, parse_len);
+				if (!p_aliases_parse_buf) {
+					memcpy(parse_buf, p, parse_len);
+				}
 				parse_buf[parse_len] = '\0';
 				p = parse_buf;
 			}

@@ -14,8 +14,6 @@ typedef struct SAbbrState {
 	ut64 parse_calls; ///< Monotonic counter of calls into the mutually-recursive name/template/data-type
 } SAbbrState;
 
-// Same cap rz-libdemangle's other recursive-descent demanglers (GNU v2, D, Borland) use
-// for this exact risk.
 #define MSVC_MAX_PARSE_CALLS 1024
 
 /**

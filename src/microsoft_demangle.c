@@ -11,15 +11,7 @@
 typedef struct SAbbrState {
 	DemList *types;
 	DemList *names;
-
-	// Monotonic counter of calls into the mutually-recursive name/template/data-type
-	// rules (get_namespace_and_name, get_template, get_template_params, parse_data_type).
-	// Never decremented, so it bounds both the total work done on one mangled name and
-	// (since a call can only recurse further after incrementing it) the maximum C-stack
-	// recursion depth. A deeply or self-referentially nested class/template type (e.g.
-	// "V?$A@V?$A@V?$A@...@@@@@@") would otherwise recurse through this cycle until the
-	// native call stack overflows -- there is no other guard against it.
-	ut64 parse_calls;
+	ut64 parse_calls; ///< Monotonic counter of calls into the mutually-recursive name/template/data-type
 } SAbbrState;
 
 // Same cap rz-libdemangle's other recursive-descent demanglers (GNU v2, D, Borland) use

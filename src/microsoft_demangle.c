@@ -2577,10 +2577,9 @@ EDemanglerErr microsoft_demangle(SDemangler *demangler, char **demangled_name) {
 	//	char *tmp = NULL;
 
 	// TODO: need refactor... maybe remove the static variable somewhere?
-	SAbbrState abbr;
+	SAbbrState abbr = { 0 };
 	abbr.types = dem_list_newf(free);
 	abbr.names = dem_list_newf(free);
-	abbr.parse_calls = 0;
 
 	if (!demangler || !demangled_name) {
 		err = eDemanglerErrMemoryAllocation;

@@ -1596,6 +1596,13 @@ static const DemSimpleEntry simple_entries[] = {
 };
 
 static void dem_simplify(DemString *out) {
+	if (!out || !out->buf) {
+		// Nothing was ever appended (e.g. the pretty-printer bailed out via a
+		// recursion guard before writing anything) -- nothing to simplify, and
+		// dem_string_replace_all() below would otherwise just log a harmless
+		// "assertion ... failed" once per table entry for this same reason.
+		return;
+	}
 	for (size_t i = 0; i < sizeof(simple_entries) / sizeof(simple_entries[0]); i++) {
 		dem_string_replace_all(
 			out,

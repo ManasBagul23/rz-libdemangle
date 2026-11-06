@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 billow <billow.fun@gmail.com>
 // SPDX-License-Identifier: LGPL-3.0-only
 
+#include <stdlib.h>
 #include "rz-minunit.h"
 #include "../../src/cplusplus/v3/v3.h"
 #include "../../src/cplusplus/demangle.h"
@@ -69,9 +70,52 @@ bool test_template_param_scope_double_free(void) {
 	mu_end;
 }
 
+/**
+ * Regression test for unbounded recursion in pp_function_ty_with_context.
+ *
+ * A function returning a pointer to a function (itself returning a pointer
+ * to a function, and so on -- "PFPFPF...vvE...vEvE") makes the pretty-printer
+ * recurse into pp_function_ty_with_context once per nesting level. That
+ * function used to recurse into itself directly (through the ft->ret
+ * function-type unwrap) without ever going through ast_pp()'s own 256-deep
+ * recursion_depth check, so a deeply nested type like this could exhaust
+ * the native C stack while printing, independent of how deep the parser
+ * itself recursed to build the type.
+ *
+ * 300 levels is comfortably past the 256-call budget pp_function_ty_with_context
+ * now enforces on its own, so the printer must now bail out to NULL instead
+ * of recursing further.
+ */
+bool test_function_ty_recursion_guard(void) {
+	const int depth = 300;
+	// "PF" * depth + "v" + "vE" * depth
+	size_t len = (size_t)depth * 2 + 1 + (size_t)depth * 2;
+	char *mangled = malloc(len + 1);
+	mu_assert_notnull(mangled, "malloc should not fail");
+
+	char *p = mangled;
+	for (int i = 0; i < depth; i++) {
+		*p++ = 'P';
+		*p++ = 'F';
+	}
+	*p++ = 'v';
+	for (int i = 0; i < depth; i++) {
+		*p++ = 'v';
+		*p++ = 'E';
+	}
+	*p = '\0';
+
+	char *r = cp_demangle_v3_type(mangled, DEM_OPT_ALL);
+	mu_assert_null(r, "300-level self-nested function-pointer-return type should fail gracefully, not crash");
+
+	free(mangled);
+	mu_end;
+}
+
 int all_tests() {
 	mu_run_test(test_parse_base36_oob);
 	mu_run_test(test_template_param_scope_double_free);
+	mu_run_test(test_function_ty_recursion_guard);
 
 	return tests_passed != tests_run;
 }

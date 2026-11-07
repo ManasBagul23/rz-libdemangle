@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2025 billow <billow.fun@gmail.com>
 // SPDX-License-Identifier: LGPL-3.0-only
 
-#include <stdlib.h>
 #include "rz-minunit.h"
 #include "../../src/cplusplus/v3/v3.h"
 #include "../../src/cplusplus/demangle.h"
@@ -87,28 +86,11 @@ bool test_template_param_scope_double_free(void) {
  * of recursing further.
  */
 bool test_function_ty_recursion_guard(void) {
-	const int depth = 300;
-	// "PF" * depth + "v" + "vE" * depth
-	size_t len = (size_t)depth * 2 + 1 + (size_t)depth * 2;
-	char *mangled = malloc(len + 1);
-	mu_assert_notnull(mangled, "malloc should not fail");
-
-	char *p = mangled;
-	for (int i = 0; i < depth; i++) {
-		*p++ = 'P';
-		*p++ = 'F';
-	}
-	*p++ = 'v';
-	for (int i = 0; i < depth; i++) {
-		*p++ = 'v';
-		*p++ = 'E';
-	}
-	*p = '\0';
-
-	char *r = cp_demangle_v3_type(mangled, DEM_OPT_ALL);
+	// 300 levels of "PF" (pointer to function returning ...), closed by a "v" base
+	// return type and 300 matching "vE" (void parameter list + function-type end).
+	char *r = cp_demangle_v3_type("PFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFPFvvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvEvE", DEM_OPT_ALL);
 	mu_assert_null(r, "300-level self-nested function-pointer-return type should fail gracefully, not crash");
 
-	free(mangled);
 	mu_end;
 }
 

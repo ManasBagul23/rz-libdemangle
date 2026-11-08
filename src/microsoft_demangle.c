@@ -12,6 +12,14 @@ typedef struct SAbbrState {
 	DemList *types;
 	DemList *names;
 	ut64 parse_calls; ///< Monotonic counter of calls into the mutually-recursive name/template/data-type
+	///< rules.
+	bool recursion_limit_hit; ///< Set once MSVC_CHECK_RECURSION aborts a rule early. Several of the
+	///< mutually-recursive rules fall back to returning whatever partial name/template text they
+	///< had already assembled when a nested call fails (so that genuinely malformed input still
+	///< produces a best-effort result instead of nothing); that fallback must not be allowed to
+	///< turn an artificial, depth-limit-triggered abort into a seemingly successful but
+	///< truncated/garbled demangled name. microsoft_demangle() checks this flag once at the end
+	///< and turns the whole result into a clean failure if it is set.
 } SAbbrState;
 
 #define MSVC_MAX_PARSE_CALLS 1024
@@ -20,11 +28,14 @@ typedef struct SAbbrState {
  * \brief Guard against unbounded recursion across the mutually-recursive name/template/
  * data-type rules. Call once at the top of each such rule, right after any existing
  * NULL/empty-input check; returns the caller's own failure value once the call budget
- * for this mangled name is exhausted.
+ * for this mangled name is exhausted, and records that this happened so the top-level
+ * entry point can turn the overall result into a clean failure instead of letting some
+ * caller's partial-result fallback paper over it with a truncated string.
  */
 #define MSVC_CHECK_RECURSION(abbr, failure_value) \
 	do { \
 		if ((abbr)->parse_calls >= MSVC_MAX_PARSE_CALLS) { \
+			(abbr)->recursion_limit_hit = true; \
 			return (failure_value); \
 		} \
 		(abbr)->parse_calls++; \
@@ -2590,6 +2601,16 @@ EDemanglerErr microsoft_demangle(SDemangler *demangler, char **demangled_name) {
 		err = parse_microsoft_rtti_mangled_name(&abbr, demangler->symbol + 2, demangled_name, NULL);
 	} else {
 		err = parse_microsoft_mangled_name(&abbr, demangler->symbol + 1, demangled_name, NULL);
+	}
+
+	if (abbr.recursion_limit_hit) {
+		// Some rule along the way hit MSVC_MAX_PARSE_CALLS and bailed out early. Whatever string
+		// *demangled_name holds at this point (if any) was assembled by a caller's lossy-recovery
+		// fallback around that abort and does not reflect the real structure of the input, so it
+		// must not be handed back as if it were a successful demangle.
+		free(*demangled_name);
+		*demangled_name = NULL;
+		err = eDemanglerErrUncorrectMangledSymbol;
 	}
 
 microsoft_demangle_err:

@@ -11,15 +11,8 @@
 typedef struct SAbbrState {
 	DemList *types;
 	DemList *names;
-	ut64 parse_calls; ///< Monotonic counter of calls into the mutually-recursive name/template/data-type
-	///< rules.
-	bool recursion_limit_hit; ///< Set once MSVC_CHECK_RECURSION aborts a rule early. Several of the
-	///< mutually-recursive rules fall back to returning whatever partial name/template text they
-	///< had already assembled when a nested call fails (so that genuinely malformed input still
-	///< produces a best-effort result instead of nothing); that fallback must not be allowed to
-	///< turn an artificial, depth-limit-triggered abort into a seemingly successful but
-	///< truncated/garbled demangled name. microsoft_demangle() checks this flag once at the end
-	///< and turns the whole result into a clean failure if it is set.
+	ut64 parse_calls;
+	bool recursion_limit_hit;
 } SAbbrState;
 
 #define MSVC_MAX_PARSE_CALLS 1024
@@ -2604,10 +2597,6 @@ EDemanglerErr microsoft_demangle(SDemangler *demangler, char **demangled_name) {
 	}
 
 	if (abbr.recursion_limit_hit) {
-		// Some rule along the way hit MSVC_MAX_PARSE_CALLS and bailed out early. Whatever string
-		// *demangled_name holds at this point (if any) was assembled by a caller's lossy-recovery
-		// fallback around that abort and does not reflect the real structure of the input, so it
-		// must not be handed back as if it were a successful demangle.
 		free(*demangled_name);
 		*demangled_name = NULL;
 		err = eDemanglerErrUncorrectMangledSymbol;
